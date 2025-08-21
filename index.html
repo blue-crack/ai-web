@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Thenux-AI</title>
+<!-- GSAP for silky animations -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+
+<style>
+  :root{
+    --bg:#0a0f1c;
+    --panel:#0f1726;
+    --surface:rgba(255,255,255,.06);
+    --text:#dfe7ff;
+    --muted:#94a3b8;
+    --primary:#00e6ff;
+    --accent:#00ffa3;
+    --danger:#ff4d6d;
+    --ring:rgba(0,230,255,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family: Inter, Poppins, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:var(--text);
+    background: radial-gradient(1200px 600px at 50% 120%, #06101c 10%, var(--bg) 60%) fixed;
+    overflow:hidden;
+  }
+
+  /* ===== Intro Layer ===== */
+  .layer{position:fixed; inset:0; display:grid; place-items:center;}
+  #intro{background:linear-gradient(180deg,#0a0f1c 0%, #0a0f1c 70%, #091423 100%);}
+  #intro .stage{position:relative; width:min(1050px,92vw); height:min(600px,80vh); border-radius:20px; background:#0e1524; box-shadow:inset 0 0 0 2px rgba(255,255,255,.03), 0 30px 120px rgba(0,0,0,.45); overflow:hidden;}
+  /* bezel look */
+  .bezel{position:absolute; inset:0; border-radius:20px; box-shadow:inset 0 0 0 10px rgba(255,255,255,.02), inset 0 0 80px rgba(0,0,0,.8)}
+  /* scanlines */
+  .scan{position:absolute; inset:0; background: repeating-linear-gradient(180deg, rgba(255,255,255,.03) 0 2px, transparent 2px 6px); mix-blend-mode:soft-light; pointer-events:none; opacity:.18}
+  .click-text{
+    position:absolute; inset:0; display:grid; place-items:center;
+    font-weight:900; letter-spacing:.1em; user-select:none; pointer-events:none;
+    color:#1a2940; text-shadow:0 0 60px rgba(0,230,255,.05);
+    font-size:clamp(48px, 16vw, 160px); opacity:.45;
+    animation: clickPulse 2.2s ease-in-out infinite;
+  }
+  @keyframes clickPulse{
+    0%,100%{transform:scale(1); opacity:.38}
+    50%{transform:scale(1.02); opacity:.52}
+  }
+
+  /* Particle canvas */
+  #pfx{position:absolute; inset:0; filter:drop-shadow(0 0 8px #00f2ffaa);}
+
+  /* ROBOT */
+  .robot-wrap{position:absolute; left:50%; bottom:9%; transform:translateX(-50%); width:min(230px,42vw); cursor:pointer; }
+  .hint{position:absolute; left:50%; transform:translateX(-50%); bottom:3.2rem; font-size:.9rem; color:var(--muted); opacity:.8}
+  .shadow{position:absolute; left:50%; bottom:5.6%; width:220px; height:28px; transform:translateX(-50%); filter:blur(10px); background: radial-gradient(60% 100% at 50% 50%, #0008, transparent 70%); opacity:.55}
+  svg{display:block; width:100%; height:auto}
+
+  /* Main app layer (hidden initially) */
+  #app{opacity:0; pointer-events:none;}
+  #app.active{opacity:1; pointer-events:auto}
+  header{
+    position:fixed; inset:0 auto auto 0; width:100%; height:76px; z-index:5;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, rgba(4,10,20,.86), rgba(4,10,20,.55));
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 40px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.06);
+  }
+  header .brand{
+    display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:.08em; font-size:1.1rem
+  }
+  .brand .dot{width:10px; height:10px; border-radius:50%; background:radial-gradient(circle, var(--primary), #0090a0); box-shadow:0 0 12px var(--primary), 0 0 30px var(--ring)}
+  main{
+    position:fixed; inset:76px 0 0 0; display:grid; grid-template-rows: 1fr auto; padding:24px; gap:16px;
+  }
+  .panel{
+    background:linear-gradient(180deg, #0f182a 0%, #0d1424 100%);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px; box-shadow: 0 10px 60px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04);
+  }
+  .chat{padding:18px; overflow:auto}
+  .msg{max-width:780px; margin:8px 0; line-height:1.55}
+  .msg.you{color:#d7eaff}
+  .msg.ai{
+    background: linear-gradient(180deg, rgba(0,230,255,.08), rgba(0,230,255,.03));
+    border:1px solid rgba(0,230,255,.22);
+    border-radius:12px; padding:10px 12px; box-shadow: inset 0 0 24px rgba(0,230,255,.06);
+  }
+  .typing{display:inline-block; min-width:10px}
+  .inputbar{
+    display:flex; gap:10px; padding:12px; align-items:center
+  }
+  .inputbar input{
+    flex:1; padding:14px 14px; border:none; border-radius:12px; outline:none;
+    background:#0e1728; color:var(--text); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+  }
+  .btn{
+    appearance:none; border:none; padding:12px 16px; border-radius:12px; font-weight:700; letter-spacing:.04em; cursor:pointer;
+    color:#001319; background:linear-gradient(180deg, #00e6ff, #00b3c7);
+    box-shadow: 0 8px 26px rgba(0,230,255,.35), inset 0 0 0 1px rgba(255,255,255,.25);
+    transition: transform .08s ease, box-shadow .2s ease;
+  }
+  .btn:active{transform:translateY(1px); box-shadow: 0 4px 14px rgba(0,230,255,.25)}
+  .voice-toggle{
+    background:linear-gradient(180deg, #7a5cff, #5b3dff);
+    color:#eef; box-shadow:0 8px 26px rgba(122,92,255,.35), inset 0 0 0 1px rgba(255,255,255,.2)
+  }
+
+  /* Intro fade out helper */
+  .fadeOut{animation:fadeOut .95s forwards}
+  @keyframes fadeOut{to{opacity:0; transform:scale(.98)}}
+
+  /* Glitchy boot title */
+  .boot{
+    position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; font-weight:900; letter-spacing:.15em; font-size:clamp(22px,4vw,36px);
+    color:#b7d9ff; opacity:0;
+    text-shadow: 0 0 12px rgba(0,230,255,.4), 0 0 60px rgba(0,230,255,.15);
+  }
+  .boot span{display:block; opacity:.9}
+  .glowRing{
+    position:absolute; inset:auto auto 12% 50%; transform:translateX(-50%); width:240px; height:240px; border-radius:50%;
+    filter:blur(24px); background: radial-gradient(closest-side, rgba(0,230,255,.22), transparent 70%);
+    opacity:0; pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== INTRO LAYER ===== -->
+<section id="intro" class="layer" aria-label="intro">
+  <div class="stage">
+    <canvas id="pfx"></canvas>
+    <div class="click-text">CLICK</div>
+    <div class="bezel"></div>
+    <div class="scan"></div>
+
+    <!-- Robot + shadow -->
+    <div class="shadow"></div>
+    <div id="robotWrap" class="robot-wrap" title="Click to start">
+
+      <!-- Futuristic starter robot (inline SVG for crisp animation) -->
+      <svg id="robot" viewBox="0 0 220 260" aria-labelledby="title desc" role="img">
+        <title>Starter Robot</title><desc>Clickable starter robot</desc>
+
+        <!-- Hover base thrusters glow -->
+        <defs>
+          <linearGradient id="gradVisor" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#253447"/>
+            <stop offset="100%" stop-color="#121b2b"/>
+          </linearGradient>
+          <linearGradient id="gradBody" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#1b2940"/>
+            <stop offset="100%" stop-color="#141e31"/>
+          </linearGradient>
+          <radialGradient id="glow" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stop-color="#00e6ff"/>
+            <stop offset="100%" stop-color="#00e6ff00"/>
+          </radialGradient>
+          <clipPath id="visorClip">
+            <rect x="40" y="36" rx="26" ry="26" width="140" height="82"></rect>
+          </clipPath>
+        </defs>
+
+        <!-- Antenna -->
+        <g id="antenna" transform="translate(110,18)">
+          <rect x="-2" y="0" width="4" height="22" rx="2" fill="#2b3950"/>
+          <circle r="7" cy="-2" fill="url(#glow)"></circle>
+          <circle id="antDot" r="3" cy="-2" fill="#79f9ff"></circle>
+        </g>
+
+        <!-- Head shell -->
+        <g id="head" transform="translate(0,6)">
+          <rect x="30" y="24" rx="32" ry="32" width="160" height="96" fill="url(#gradBody)" stroke="#223149" stroke-width="2"/>
+          <!-- visor -->
+          <g clip-path="url(#visorClip)">
+            <rect x="40" y="36" rx="26" ry="26" width="140" height="82" fill="url(#gradVisor)"/>
+            <!-- glossy sweep -->
+            <rect id="sweep" x="-160" y="36" width="60" height="82" transform="skewX(-20)" fill="rgba(255,255,255,.18)"></rect>
+            <!-- eyes -->
+            <g id="eyes" transform="translate(0,8)">
+              <rect x="64" y="60" width="28" height="6" rx="3" fill="#8df7ff"/>
+              <rect x="128" y="60" width="28" height="6" rx="3" fill="#8df7ff"/>
+            </g>
+          </g>
+        </g>
+
+        <!-- Body -->
+        <g id="body" transform="translate(0,0)">
+          <rect x="60" y="126" width="100" height="74" rx="12" fill="url(#gradBody)" stroke="#223149" stroke-width="2"/>
+          <!-- chest slits -->
+          <rect x="90" y="150" width="16" height="6" rx="2" fill="#223149"/>
+          <rect x="114" y="150" width="16" height="6" rx="2" fill="#223149"/>
+          <rect x="102" y="166" width="16" height="6" rx="2" fill="#223149"/>
+          <!-- core glow -->
+          <circle id="core" cx="110" cy="142" r="6" fill="url(#glow)" opacity=".7"/>
+        </g>
+
+        <!-- Arms -->
+        <g id="arms">
+          <rect x="38" y="132" width="14" height="40" rx="7" fill="#1a273b"/>
+          <rect x="168" y="132" width="14" height="40" rx="7" fill="#1a273b"/>
+        </g>
+
+        <!-- Thrusters -->
+        <g id="thrusters" transform="translate(0,0)" opacity=".85">
+          <rect x="76" y="204" width="20" height="24" rx="6" fill="#1a273b"/>
+          <rect x="124" y="204" width="20" height="24" rx="6" fill="#1a273b"/>
+          <!-- flame -->
+          <ellipse id="fl1" cx="86" cy="235" rx="6" ry="12" fill="url(#glow)" opacity=".8"/>
+          <ellipse id="fl2" cx="134" cy="235" rx="6" ry="12" fill="url(#glow)" opacity=".8"/>
+        </g>
+      </svg>
+
+      <div class="hint">Tap the robot to boot</div>
+    </div>
+
+    <!-- Boot overlay -->
+    <div class="boot" id="bootText"><span>INITIALIZING • THENUX-AI</span></div>
+    <div class="glowRing" id="ring"></div>
+  </div>
+</section>
+
+<!-- ===== APP LAYER ===== -->
+<section id="app" class="layer" aria-label="app">
+  <header>
+    <div class="brand">
+      <span class="dot"></span>
+      THENUX-AI • NEURAL CONSOLE
+    </div>
+  </header>
+  <main>
+    <div id="chat" class="panel chat" aria-live="polite"></div>
+    <div class="panel inputbar">
+      <input id="q" placeholder="Ask anything… (Enter to send)" />
+      <button id="speak" class="btn voice-toggle" title="Toggle voice reply">🔊 Voice</button>
+      <button id="send" class="btn">Send</button>
+    </div>
+  </main>
+</section>
+
+<script>
+/* ===================== PARTICLES ====================== */
+const p = document.getElementById('pfx');
+const ctx = p.getContext('2d');
+let W, H, parts = [];
+function resize(){
+  W = p.width = p.offsetWidth = p.parentElement.clientWidth;
+  H = p.height = p.offsetHeight = p.parentElement.clientHeight;
+}
+window.addEventListener('resize', resize); resize();
+
+function spawn(n=26){
+  for(let i=0;i<n;i++){
+    parts.push({
+      x: Math.random()*W,
+      y: Math.random()*H,
+      vx: (Math.random()-0.5)*0.4,
+      vy: (Math.random()-0.5)*0.4,
+      r: 0.8 + Math.random()*1.8,
+      o: 0.25 + Math.random()*0.35
+    });
+  }
+}
+spawn(80);
+
+function tick(){
+  ctx.clearRect(0,0,W,H);
+  for(const prt of parts){
+    prt.x+=prt.vx; prt.y+=prt.vy;
+    if(prt.x<0||prt.x>W) prt.vx*=-1;
+    if(prt.y<0||prt.y>H) prt.vy*=-1;
+    ctx.beginPath();
+    ctx.arc(prt.x, prt.y, prt.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(0,230,255,${prt.o})`;
+    ctx.fill();
+  }
+  requestAnimationFrame(tick);
+}
+tick();
+
+/* ===================== ROBOT IDLE ANIMATIONS ====================== */
+const robot = document.getElementById('robot');
+const wrap  = document.getElementById('robotWrap');
+const antDot = document.getElementById('antDot');
+const eyes = robot.getElementById('eyes');
+const sweep = document.getElementById('sweep');
+const thr1 = document.getElementById('fl1');
+const thr2 = document.getElementById('fl2');
+const core = document.getElementById('core');
+
+gsap.set(wrap, {y:0});
+gsap.to(wrap, {y:-10, duration:2.2, yoyo:true, repeat:-1, ease:"sine.inOut"});
+gsap.to('.shadow', {scaleX:0.86, duration:2.2, yoyo:true, repeat:-1, ease:"sine.inOut"});
+gsap.to(antDot, {scale:1.35, transformOrigin:"50% 50%", repeat:-1, yoyo:true, duration:.8, ease:"sine.inOut"});
+gsap.to(thr1, {attr:{ry: 16}, repeat:-1, yoyo:true, duration:.28, ease:"sine.inOut"});
+gsap.to(thr2, {attr:{ry: 13}, repeat:-1, yoyo:true, duration:.22, ease:"sine.inOut"});
+gsap.to(core, {opacity:0.35, repeat:-1, yoyo:true, duration:1.6, ease:"sine.inOut"});
+gsap.to(sweep, {x:260, duration:2.8, repeat:-1, ease:"power2.inOut"});
+
+// Blinking eyes
+function blink(){
+  const tl = gsap.timeline();
+  tl.to(eyes, {scaleY:0.12, transformOrigin:"50% 50%", duration:.08, ease:"power2.in"})
+    .to(eyes, {scaleY:1, duration:.12, ease:"power2.out"});
+  setTimeout(blink, 1200 + Math.random()*2600);
+}
+setTimeout(blink, 800);
+
+/* ===================== BOOT SEQUENCE ====================== */
+const intro = document.getElementById('intro');
+const bootText = document.getElementById('bootText');
+const ring = document.getElementById('ring');
+let booted = false;
+
+wrap.addEventListener('mouseenter', ()=> gsap.to(wrap, {y:-16, duration:.4}));
+wrap.addEventListener('mouseleave', ()=> gsap.to(wrap, {y:-10, duration:.4}));
+
+wrap.addEventListener('click', () => {
+  if(booted) return; booted = true;
+
+  // burst particles from robot
+  for(let i=0;i<90;i++){
+    parts.push({
+      x: p.offsetWidth/2,
+      y: p.offsetHeight*0.78,
+      vx: (Math.random()-0.5)*4.5,
+      vy: -Math.random()*3-1.5,
+      r: 1 + Math.random()*2.2,
+      o: 0.4 + Math.random()*0.5
+    });
+  }
+
+  // Boot text + ring
+  gsap.timeline()
+    .to('#bootText', {opacity:1, duration:.3, ease:"power2.out"})
+    .to('#bootText', {opacity:0, delay:.9, duration:.4}, ">")
+  gsap.to('#ring', {opacity:1, duration:.5, y:-10, ease:"power2.out"});
+
+  // Dramatic robot lift
+  gsap.to(wrap, {y:-120, scale:1.08, duration:1, ease:"power4.out"});
+  gsap.to('.shadow', {opacity:0, duration:.9, ease:"power1.out"});
+
+  // Fade intro out, show app
+  setTimeout(() => {
+    intro.classList.add('fadeOut');
+    setTimeout(() => {
+      intro.style.display = 'none';
+      document.getElementById('app').classList.add('active');
+      bootChat();
+    }, 900);
+  }, 900);
+});
+
+/* ===================== CHAT / APP ====================== */
+const chat = document.getElementById('chat');
+const input = document.getElementById('q');
+const send  = document.getElementById('send');
+const voiceBtn = document.getElementById('speak');
+let voiceOn = true;
+voiceBtn.addEventListener('click', ()=>{ voiceOn=!voiceOn; voiceBtn.textContent = voiceOn ? "🔊 Voice" : "🔇 Voice"; });
+
+function msgEl(cls, html){
+  const el = document.createElement('div');
+  el.className = 'msg '+cls;
+  el.innerHTML = html;
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+  return el;
+}
+
+function typeText(target, text, speed=16){
+  return new Promise(res=>{
+    let i=0;
+    const span = document.createElement('span');
+    span.className='typing';
+    target.appendChild(span);
+    const iv = setInterval(()=>{
+      span.textContent = text.slice(0,++i);
+      chat.scrollTop = chat.scrollHeight;
+      if(i>=text.length){ clearInterval(iv); res(); }
+    }, speed);
+  });
+}
+
+// Simple local mock “AI”
+function aiReply(q){
+  q = q.trim();
+  if(!q) return "Hmm?";
+  const lower = q.toLowerCase();
+  if(lower.includes("hello")||lower.includes("hi")) return "Hello! I'm Thenux-AI. How can I assist you today?";
+  if(lower.includes("time")){
+    return "Your system time is " + new Date().toLocaleTimeString();
+  }
+  if(lower.includes("who are you")) return "I'm a compact neural console with big dreams 🧠⚡";
+  if(lower.includes("joke")) return "Why do programmers prefer dark mode? Because light attracts bugs.";
+  return "Got it. If you plug in your real API later, I’ll fetch live answers.";
+}
+
+// Voice (Web Speech API)
+function speak(text){
+  if(!voiceOn) return;
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.02; u.pitch = 1.05;
+    u.voice = speechSynthesis.getVoices().find(v => /en/i.test(v.lang)) || null;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+async function sendNow(){
+  const q = input.value.trim();
+  if(!q) return;
+  input.value = "";
+  msgEl('you', `<strong>You:</strong> ${q}`);
+  const ai = msgEl('ai', `<strong>🤖 Thenux-AI:</strong> `);
+  await new Promise(r=>setTimeout(r, 250));
+  const text = aiReply(q);
+  await typeText(ai, text, 12);
+  speak(text);
+}
+send.addEventListener('click', sendNow);
+input.addEventListener('keydown', e => { if(e.key==='Enter') sendNow(); });
+
+function bootChat(){
+  const hello = msgEl('ai', `<strong>🤖 Thenux-AI:</strong> `);
+  typeText(hello, "Boot complete. Online. Ask me anything.", 14).then(()=> speak("Boot complete. Online. Ask me anything."));
+}
+
+/* Accessibility: focus input once app shows */
+const appObserver = new MutationObserver(()=>{
+  if(document.getElementById('app').classList.contains('active')){
+    setTimeout(()=> input.focus(), 250);
+    appObserver.disconnect();
+  }
+});
+appObserver.observe(document.getElementById('app'), {attributes:true});
+</script>
+</body>
+</html>
